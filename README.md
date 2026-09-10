@@ -1,11 +1,43 @@
-<<<<<<< HEAD
-# SIH26100 — AI-Powered Integrated Bid Compliance Verification Platform
+# SIH26100 — AI-Powered Integrated Bid Compliance Verification & Seller Platform
 
-> **Master build specification for the AI code editor**
+> **Master Full-Stack Monorepo Implementation**
 >
 > Build the product as an evidence-first, deterministic-first, human-in-the-loop compliance verification platform for GeM procurement. This repository is the implementation source of truth.
 
 ---
+
+## 0. Quickstart & Monorepo Command Center
+
+This project is organized as a unified 3-tier monorepo:
+
+- **`frontend/`**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
+- **`backend/`**: Spring Boot 3 + Java 17 + JPA + Flyway + JWT Security
+- **`ai-service/`**: FastAPI + Python 3.10 + PyMuPDF OCR + Vector Store RAG Engine
+- **`docker-compose.yml`**: Full container orchestration (PostgreSQL, Redis, MinIO, Backend, AI, Frontend)
+
+### Monorepo Orchestration Commands
+
+From the monorepo root directory, run:
+
+```bash
+# 1. Install & Launch All Services Concurrently
+npm run dev
+
+# 2. Individual Tier Launchers
+npm run dev:frontend    # Starts Vite Frontend on http://localhost:3000
+npm run dev:backend     # Starts Spring Boot Backend on http://localhost:8080
+npm run dev:ai          # Starts FastAPI AI Microservice on http://localhost:8000
+
+# 3. Build & Test Monorepo
+npm run build           # Builds frontend & backend
+npm run test            # Executes pytest, maven compilation, and vite build
+
+# 4. Docker Multi-Container Launch
+npm run docker:up       # Spins up local PostgreSQL, Redis, MinIO, Backend, AI, Frontend
+```
+
+---
+
 
 ## 1. Product Mission
 
