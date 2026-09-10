@@ -1,38 +1,23 @@
-# Node / Frontend
-node_modules/
-dist/
-.vite/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Frontend & Node
+**/node_modules/
+**/dist/
+**/.vite/
+*.log
 
-# Java / Maven / Spring Boot
-target/
-*.class
-*.jar
-*.war
-*.ear
-.mvn/wrapper/maven-wrapper.jar
-.project
-.classpath
-.settings/
+# Java & Spring Boot
+**/target/
+**/*.class
+**/*.jar
+**/*.war
 
-# Python / FastAPI
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv/
-.pytest_cache/
+# Python & FastAPI
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/.pytest_cache/
 
-# IDE / OS
+# IDE & OS
 .idea/
 .vscode/
-*.swp
-*.swo
 .DS_Store
 Thumbs.db
