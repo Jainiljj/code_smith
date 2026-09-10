@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SIH26100 — AI-Powered Integrated Bid Compliance Verification Platform
 
 > **Master build specification for the AI code editor**
@@ -1898,3 +1899,7 @@ Security
 ```
 
 The system must never fabricate evidence, citations, compliance status, or verification results.
+=======
+# SIH_2026
+
+>>>>>>> 7a2c336ca4936418e336c5a5d875fde195f60422

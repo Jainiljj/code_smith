@@ -10,10 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -41,29 +38,26 @@ public class TenderService {
     @Transactional
     public TenderDTO createTender(TenderDTO request) {
         String tenderId = request.getId() != null ? request.getId() : "TND-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        String tenderNum = request.getTenderNumber() != null ? request.getTenderNumber() : "GEM/2026/B/" + (10000 + new Random().nextInt(90000));
-        
         Tender tender = Tender.builder()
                 .id(tenderId)
                 .organizationId(request.getOrganizationId() != null ? request.getOrganizationId() : "ORG-001")
-                .tenderNumber(tenderNum)
+                .tenderNumber(request.getTenderNumber())
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .issuingAuthority(request.getIssuingAuthority() != null ? request.getIssuingAuthority() : "Central Procurement Authority")
-                .category(request.getCategory() != null ? request.getCategory() : "Industrial Equipment")
-                .estimatedValue(request.getEstimatedValue() != null ? request.getEstimatedValue() : BigDecimal.valueOf(50000000))
+                .issuingAuthority(request.getIssuingAuthority())
+                .category(request.getCategory())
+                .estimatedValue(request.getEstimatedValue())
                 .status("IN_EVALUATION")
                 .createdBy(request.getCreatedBy() != null ? request.getCreatedBy() : "USR-PROC-01")
                 .build();
 
-        List<Requirement> reqs = new ArrayList<>();
-        if (request.getRequirements() != null && !request.getRequirements().isEmpty()) {
-            reqs = request.getRequirements().stream()
+        if (request.getRequirements() != null) {
+            List<Requirement> reqs = request.getRequirements().stream()
                     .map(r -> Requirement.builder()
                             .id("REQ-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
                             .tender(tender)
-                            .reqCode(r.getReqCode() != null ? r.getReqCode() : "REQ-" + UUID.randomUUID().toString().substring(0, 4))
-                            .category(r.getCategory() != null ? r.getCategory() : "Technical")
+                            .reqCode(r.getReqCode() != null ? r.getReqCode() : "REQ-001")
+                            .category(r.getCategory())
                             .rawText(r.getRawText())
                             .reqType(r.getReqType() != null ? r.getReqType() : "NUMERIC_THRESHOLD")
                             .operator(r.getOperator())
@@ -73,64 +67,9 @@ public class TenderService {
                             .sourcePage(r.getSourcePage() != null ? r.getSourcePage() : 1)
                             .build())
                     .collect(Collectors.toList());
-        } else {
-            // Automatically generate OCR Extracted Requirements for newly created tender
-            reqs.add(Requirement.builder()
-                    .id("REQ-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
-                    .tender(tender)
-                    .reqCode("REQ-001")
-                    .category("Financial")
-                    .rawText("Bidder must have minimum ₹50 crore annual turnover for each of the previous 3 financial years.")
-                    .reqType("NUMERIC_THRESHOLD")
-                    .operator(">=")
-                    .threshold(BigDecimal.valueOf(50.00))
-                    .unit("Cr")
-                    .isMandatory(true)
-                    .sourcePage(1)
-                    .build());
-
-            reqs.add(Requirement.builder()
-                    .id("REQ-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
-                    .tender(tender)
-                    .reqCode("REQ-002")
-                    .category("Eligibility")
-                    .rawText("Valid GST Registration Certificate & PAN Card must be submitted.")
-                    .reqType("DOCUMENT_PRESENCE")
-                    .operator("==")
-                    .isMandatory(true)
-                    .sourcePage(2)
-                    .build());
-
-            reqs.add(Requirement.builder()
-                    .id("REQ-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
-                    .tender(tender)
-                    .reqCode("REQ-003")
-                    .category("Technical")
-                    .rawText("Equipment operational efficiency shall not be less than 85%.")
-                    .reqType("NUMERIC_THRESHOLD")
-                    .operator(">=")
-                    .threshold(BigDecimal.valueOf(85.00))
-                    .unit("%")
-                    .isMandatory(true)
-                    .sourcePage(3)
-                    .build());
-
-            reqs.add(Requirement.builder()
-                    .id("REQ-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
-                    .tender(tender)
-                    .reqCode("REQ-004")
-                    .category("Experience")
-                    .rawText("Minimum 3 years of experience supplying government or PSU entities.")
-                    .reqType("NUMERIC_THRESHOLD")
-                    .operator(">=")
-                    .threshold(BigDecimal.valueOf(3.00))
-                    .unit("Years")
-                    .isMandatory(true)
-                    .sourcePage(4)
-                    .build());
+            tender.setRequirements(reqs);
         }
 
-        tender.setRequirements(reqs);
         Tender saved = tenderRepository.save(tender);
         return mapToDTO(saved);
     }

@@ -7,19 +7,19 @@ const ENABLE_MOCKS = import.meta.env.VITE_ENABLE_MOCKS === 'true';
 
 // Auto-acquire JWT token for authenticated Spring Boot REST API calls
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  let token = localStorage.getItem('gem_auth_token') || localStorage.getItem('sih_jwt_token');
+  let token = localStorage.getItem('sih_jwt_token');
   if (!token) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin.demo@gembid.local', password: 'Password123!' })
+        body: JSON.stringify({ email: 'officer@gem.gov.in', password: 'pass' })
       });
       if (res.ok) {
         const data = await res.json();
         token = data.token;
         if (token) {
-          localStorage.setItem('gem_auth_token', token);
+          localStorage.setItem('sih_jwt_token', token);
         }
       }
     } catch (e) {
@@ -198,34 +198,6 @@ export const apiService = {
     if (ENABLE_MOCKS) return MOCK_TENDERS.find(t => t.id === id) || MOCK_TENDERS[0];
     const authHeaders = await getAuthHeaders();
     const res = await fetch(`${API_BASE_URL}/tenders/${id}`, { headers: authHeaders });
-    if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
-    return await res.json();
-  },
-
-  createTender: async (tenderData: Partial<Tender>): Promise<Tender> => {
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/tenders`, {
-      method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify(tenderData)
-    });
-    if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
-    return await res.json();
-  },
-
-  uploadDocument: async (file: File, bidId: string = 'BID-A-01'): Promise<any> => {
-    const authHeaders = await getAuthHeaders();
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bidId', bidId);
-
-    const res = await fetch(`${API_BASE_URL}/documents/upload`, {
-      method: 'POST',
-      headers: {
-        ...authHeaders,
-      },
-      body: formData
-    });
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },

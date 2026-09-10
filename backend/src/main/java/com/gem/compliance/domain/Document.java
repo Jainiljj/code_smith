@@ -3,8 +3,6 @@ package com.gem.compliance.domain;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "documents")
@@ -20,6 +18,9 @@ public class Document {
 
     @Column(name = "bid_id")
     private String bidId;
+
+    @Column(name = "tender_id")
+    private String tenderId;
 
     @Column(nullable = false)
     private String filename;
@@ -41,19 +42,13 @@ public class Document {
 
     @Column(name = "processing_status")
     @Builder.Default
-    private String processingStatus = "PENDING"; // PENDING, PARSED, FAILED
+    private String processingStatus = "PENDING"; // PENDING, PROCESSING, PARSED, FAILED
 
     @Column(name = "uploaded_at")
     private ZonedDateTime uploadedAt;
 
-    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<DocumentPage> pages = new ArrayList<>();
-
     @PrePersist
     protected void onCreate() {
-        if (uploadedAt == null) {
-            uploadedAt = ZonedDateTime.now();
-        }
+        if (uploadedAt == null) uploadedAt = ZonedDateTime.now();
     }
 }

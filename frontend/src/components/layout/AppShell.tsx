@@ -15,7 +15,8 @@ import {
   X,
   LogOut,
   UserCheck,
-  ShieldAlert
+  ShieldAlert,
+  Users
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -25,28 +26,70 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const allNavItems = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'tenders:read' },
-    { label: 'Tenders & Requirements', path: '/tenders', icon: FileText, permission: 'tenders:read' },
-    { label: 'Compliance Matrix', path: '/compliance', icon: CheckCircle2, permission: 'compliance:read' },
-    { label: 'Seller Verification Queue', path: '/sellers', icon: UserCheck, permission: 'sellers:read' },
-    { label: 'Review Queue', path: '/reviews', icon: AlertTriangle, permission: 'reviews:write' },
-    { label: 'Compliance Reports', path: '/reports', icon: ClipboardList, permission: 'compliance:read' },
-    { label: 'Audit Trail', path: '/audit', icon: ShieldCheck, permission: 'audit:read' },
-  ];
-
-  const visibleNavItems = allNavItems.filter((item) => {
-    if (!user) return true; // Show default menu if session loading
-    if (user.role === 'SYSTEM_ADMIN' || user.role === 'PROCUREMENT_OFFICER' || user.role === 'COMPLIANCE_REVIEWER') return true;
-    if (user.role === 'BIDDER_VENDOR' || user.role === 'BIDDER') {
-      return ['/', '/tenders'].includes(item.path);
+  // Role-mapped Navigation Definitions
+  const getNavItems = () => {
+    const role = user?.role || 'SYSTEM_ADMIN';
+    switch (role) {
+      case 'SYSTEM_ADMIN':
+        return [
+          { label: 'Admin Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Seller Risk Queue', path: '/sellers', icon: UserCheck },
+          { label: 'Tenders & Specifications', path: '/tenders', icon: FileText },
+          { label: 'Compliance Matrix', path: '/compliance', icon: CheckCircle2 },
+          { label: 'Human Review Queue', path: '/reviews', icon: AlertTriangle },
+          { label: 'Compliance Reports', path: '/reports', icon: ClipboardList },
+          { label: 'System Audit Trail', path: '/audit', icon: ShieldCheck },
+        ];
+      case 'PROCUREMENT_OFFICER':
+        return [
+          { label: 'Procurement Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Tenders & Specifications', path: '/tenders', icon: FileText },
+          { label: 'Seller Verification Queue', path: '/sellers', icon: UserCheck },
+          { label: 'Compliance Matrix', path: '/compliance', icon: CheckCircle2 },
+          { label: 'Review & Overrides', path: '/reviews', icon: AlertTriangle },
+          { label: 'Compliance Reports', path: '/reports', icon: ClipboardList },
+          { label: 'Audit Log History', path: '/audit', icon: ShieldCheck },
+        ];
+      case 'COMPLIANCE_REVIEWER':
+        return [
+          { label: 'Reviewer Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Review Queue & Overrides', path: '/reviews', icon: AlertTriangle },
+          { label: 'Seller Verification Queue', path: '/sellers', icon: UserCheck },
+          { label: 'Compliance Matrix', path: '/compliance', icon: CheckCircle2 },
+          { label: 'Tenders View', path: '/tenders', icon: FileText },
+          { label: 'Compliance Reports', path: '/reports', icon: ClipboardList },
+          { label: 'Audit Trail', path: '/audit', icon: ShieldCheck },
+        ];
+      case 'VIEWER':
+      case 'AUDITOR':
+        return [
+          { label: 'Auditor Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Audit Trail Logs', path: '/audit', icon: ShieldCheck },
+          { label: 'Seller Risk Queue', path: '/sellers', icon: UserCheck },
+          { label: 'Compliance Reports', path: '/reports', icon: ClipboardList },
+          { label: 'Tenders Directory', path: '/tenders', icon: FileText },
+          { label: 'Compliance Matrix', path: '/compliance', icon: CheckCircle2 },
+        ];
+      case 'BIDDER_VENDOR':
+      case 'BIDDER':
+        return [
+          { label: 'Vendor Portal Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Active Tenders & Bids', path: '/tenders', icon: FileText },
+        ];
+      default:
+        return [
+          { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Tenders', path: '/tenders', icon: FileText },
+          { label: 'Seller Queue', path: '/sellers', icon: UserCheck },
+          { label: 'Compliance Matrix', path: '/compliance', icon: CheckCircle2 },
+        ];
     }
-    if (!item.permission) return true;
-    return hasPermission(item.permission);
-  });
+  };
+
+  const navItems = getNavItems();
 
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);
@@ -62,7 +105,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       {/* Top Bar */}
       <header className="h-16 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 shadow-md">
         <div className="flex items-center gap-3">
-          {/* Mobile Hamburger Toggle */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 transition focus:outline-none"
@@ -95,7 +137,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             </button>
           </div>
 
-          {user ? (
+          {user && (
             <div className="flex items-center gap-3 pl-2 sm:pl-3 border-l border-slate-800">
               <div className="w-8 h-8 rounded-full bg-slate-800 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-xs">
                 {user.fullName ? user.fullName.charAt(0) : 'U'}
@@ -107,18 +149,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               <button
                 onClick={handleLogout}
                 title="Sign Out"
-                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
+                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
-          ) : (
-            <Link
-              to="/login"
-              className="px-3 py-1.5 text-xs font-semibold bg-emerald-400 text-slate-950 rounded-lg hover:bg-emerald-300 transition"
-            >
-              Sign In
-            </Link>
           )}
         </div>
       </header>
@@ -139,7 +174,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           }`}
         >
           <div className="px-4 mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Navigation</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">NAVIGATION</span>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
               className="md:hidden text-slate-400 hover:text-slate-700 p-1"
@@ -149,7 +184,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </div>
 
           <nav className="space-y-1 px-2 flex-1">
-            {visibleNavItems.map((item) => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
               return (
@@ -173,7 +208,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           {user && (
             <div className="p-3 mx-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Active Role</span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Active RBAC Session</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               </div>
               <p className="font-semibold text-emerald-400 text-xs font-mono">{user.role}</p>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { apiService } from '../../services/api';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, PlusCircle, Building2 } from 'lucide-react';
+import { X, Upload, FileText, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthProvider';
 
 interface CreateTenderModalProps {
   isOpen: boolean;
@@ -8,74 +8,109 @@ interface CreateTenderModalProps {
   onSuccess: () => void;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+
 export const CreateTenderModal: React.FC<CreateTenderModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
 }) => {
+  const { token } = useAuth();
+  const [tenderNumber, setTenderNumber] = useState(`GEM/2026/B/${Math.floor(10000 + Math.random() * 90000)}`);
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [issuingAuthority, setIssuingAuthority] = useState('Central Water Commission');
+  const [issuingAuthority, setIssuingAuthority] = useState('Central Public Procurement Portal');
   const [category, setCategory] = useState('Industrial Equipment');
-  const [estimatedValueCr, setEstimatedValueCr] = useState('5.00');
+  const [estimatedValue, setEstimatedValue] = useState('50000000');
+  const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setErrorMessage('Tender Title is required');
+      setError('Tender title is required');
       return;
     }
 
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    setStatusMessage('Creating Tender Record in Database...');
+    setSubmitting(true);
+    setError(null);
 
     try {
-      const estimatedValue = parseFloat(estimatedValueCr || '5') * 10000000;
-      
-      // 1. Create Tender in DB
-      const createdTender = await apiService.createTender({
+      // 1. Create Tender in Backend
+      const tenderPayload = {
+        tenderNumber,
         title,
-        description,
         issuingAuthority,
         category,
-        estimatedValue,
+        estimatedValue: parseFloat(estimatedValue) || 50000000,
+        description,
+        requirements: [
+          {
+            reqCode: 'REQ-001',
+            category: 'Financial',
+            rawText: 'Bidder must have minimum ₹100 crore annual turnover for previous 3 years.',
+            reqType: 'NUMERIC_THRESHOLD',
+            operator: '>=',
+            threshold: 100.0,
+            unit: 'Cr',
+            isMandatory: true,
+            sourcePage: 1
+          },
+          {
+            reqCode: 'REQ-002',
+            category: 'Eligibility',
+            rawText: 'Valid GST Registration Certificate & PAN Card must be submitted.',
+            reqType: 'DOCUMENT_PRESENCE',
+            isMandatory: true,
+            sourcePage: 1
+          }
+        ]
+      };
+
+      const tenderRes = await fetch(`${API_BASE_URL}/tenders`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token || localStorage.getItem('gem_auth_token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tenderPayload),
       });
 
-      setStatusMessage('Tender created. Uploading Document & Running OCR Parsing Engine...');
-
-      // 2. Upload Document & Run OCR Ingestion
-      if (file) {
-        await apiService.uploadDocument(file, createdTender.id);
+      if (!tenderRes.ok) {
+        const errData = await tenderRes.json().catch(() => ({}));
+        throw new Error(errData.message || `Failed to create tender: HTTP ${tenderRes.status}`);
       }
 
-      setStatusMessage('Extracted OCR Requirements & Document Persisted Successfully!');
-      setTimeout(() => {
-        setIsSubmitting(false);
-        onSuccess();
-        onClose();
-      }, 1000);
+      // 2. Upload Attachment Document if provided
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('bidId', 'BID-A-01');
+
+        await fetch(`${API_BASE_URL}/documents/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token || localStorage.getItem('gem_auth_token')}`,
+          },
+          body: formData,
+        });
+      }
+
+      setSubmitting(false);
+      onSuccess();
+      onClose();
     } catch (err: any) {
-      setIsSubmitting(false);
-      setErrorMessage(err.message || 'Failed to create tender and upload document.');
+      setSubmitting(false);
+      setError(err.message || 'Error creating tender document');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-5 relative">
         <button
           onClick={onClose}
@@ -84,40 +119,56 @@ export const CreateTenderModal: React.FC<CreateTenderModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center space-x-3">
-          <div className="h-10 w-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
-            <PlusCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Create Tender & Process OCR Document</h2>
-            <p className="text-xs text-slate-500">Upload tender specification to extract compliance requirements into DB.</p>
-          </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-emerald-600" />
+            <span>Create GeM Tender & Upload Specifications</span>
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Fill tender metadata and attach technical PDF document to trigger PyMuPDF OCR requirement extraction.
+          </p>
         </div>
 
-        {errorMessage && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {statusMessage && isSubmitting && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-center space-x-2">
-            <Loader2 className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
-            <span>{statusMessage}</span>
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Tender Number</label>
+              <input
+                type="text"
+                required
+                value={tenderNumber}
+                onChange={(e) => setTenderNumber(e.target.value)}
+                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+              <input
+                type="text"
+                required
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Tender Title *</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Tender Title</label>
             <input
               type="text"
               required
+              placeholder="e.g. Supply & Installation of High-Efficiency Water Pumps"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Procurement of High-Capacity Centrifugal Water Pumps"
-              className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-semibold"
             />
           </div>
 
@@ -126,70 +177,78 @@ export const CreateTenderModal: React.FC<CreateTenderModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">Issuing Authority</label>
               <input
                 type="text"
+                required
                 value={issuingAuthority}
                 onChange={(e) => setIssuingAuthority(e.target.value)}
-                placeholder="Central Water Commission"
-                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Estimated Value (₹)</label>
               <input
-                type="text"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Industrial Equipment"
-                className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                type="number"
+                required
+                value={estimatedValue}
+                onChange={(e) => setEstimatedValue(e.target.value)}
+                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Estimated Value (₹ Crores)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={estimatedValueCr}
-              onChange={(e) => setEstimatedValueCr(e.target.value)}
-              placeholder="5.00"
-              className="w-full text-sm bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Procurement description and specifications summary..."
+              className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5"
             />
           </div>
 
+          {/* Tender Specification File Upload */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Tender Specification PDF Document</label>
-            <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 rounded-xl p-4 text-center cursor-pointer relative">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Attach Specification Document (PDF / DOCX)</label>
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 bg-slate-50 text-center">
               <input
                 type="file"
+                id="tenderFile"
                 accept=".pdf,.docx"
-                onChange={handleFileSelect}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="hidden"
               />
-              <div className="flex flex-col items-center space-y-1">
-                <Upload className="w-6 h-6 text-slate-400" />
+              <label htmlFor="tenderFile" className="cursor-pointer space-y-1 block">
+                <Upload className="w-5 h-5 text-emerald-600 mx-auto" />
                 {file ? (
-                  <span className="text-xs font-bold text-emerald-600">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  <span className="text-xs font-bold text-slate-800 block">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                 ) : (
-                  <span className="text-xs text-slate-600">Click or drag & drop Tender Document PDF for OCR parsing</span>
+                  <span className="text-xs text-slate-600 block">Click to browse & upload tender document PDF</span>
                 )}
-              </div>
+              </label>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2 pt-2">
+          <div className="flex justify-end gap-2 pt-2 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm disabled:opacity-50"
+              disabled={submitting}
+              className="px-5 py-2 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm flex items-center gap-2"
             >
-              {isSubmitting ? 'Creating Tender & Document...' : 'Create Tender & Run OCR'}
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing OCR & Saving...</span>
+                </>
+              ) : (
+                <span>Create Tender & Run OCR</span>
+              )}
             </button>
           </div>
         </form>
