@@ -1,3 +1,5 @@
+# Monorepo Ignored Folders & Dependencies
+
 # Frontend & Node
 **/node_modules/
 **/dist/
@@ -16,8 +18,13 @@
 **/.venv/
 **/.pytest_cache/
 
+# Temporary Archives & Unzipped Workspaces
+code_smith/
+code_smith.zip
+
 # IDE & OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+.env
