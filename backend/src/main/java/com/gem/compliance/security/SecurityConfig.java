@@ -46,11 +46,12 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/health").permitAll()
                 // Explicit Public Auth Endpoint for Dev/Demo Token Generation
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                // Protected Business APIs Require Authentication
+                // Protected Business APIs Require Valid JWT Authentication
                 .requestMatchers("/api/v1/tenders/**").authenticated()
                 .requestMatchers("/api/v1/compliance/**").authenticated()
-                .requestMatchers("/api/v1/reviews/**").hasAnyAuthority("PROCUREMENT_OFFICER", "COMPLIANCE_REVIEWER", "SYSTEM_ADMIN", "ROLE_PROCUREMENT_OFFICER", "ROLE_COMPLIANCE_REVIEWER", "ROLE_SYSTEM_ADMIN")
-                .requestMatchers("/api/v1/audit/**").hasAnyAuthority("PROCUREMENT_OFFICER", "COMPLIANCE_REVIEWER", "SYSTEM_ADMIN", "ROLE_PROCUREMENT_OFFICER", "ROLE_COMPLIANCE_REVIEWER", "ROLE_SYSTEM_ADMIN")
+                .requestMatchers("/api/v1/reviews/**").authenticated()
+                .requestMatchers("/api/v1/audit/**").authenticated()
+                .requestMatchers("/api/v1/sellers/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

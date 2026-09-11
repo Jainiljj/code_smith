@@ -13,7 +13,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'officer@gem.gov.in', password: 'pass' })
+        body: JSON.stringify({ email: 'procurement.demo@gembid.local', password: 'Password123!' })
       });
       if (res.ok) {
         const data = await res.json();
@@ -28,6 +28,34 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     }
   }
   return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+// Helper with automatic 401 retry and token refresh
+async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  const authHeaders = await getAuthHeaders();
+  let res = await fetch(url, {
+    ...options,
+    headers: {
+      ...authHeaders,
+      ...(options.headers || {})
+    }
+  });
+
+  if (res.status === 401) {
+    console.warn(`HTTP 401 from ${url}. Re-acquiring fresh JWT authentication token...`);
+    localStorage.removeItem('gem_auth_token');
+    localStorage.removeItem('sih_jwt_token');
+    const freshHeaders = await getAuthHeaders();
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        ...freshHeaders,
+        ...(options.headers || {})
+      }
+    });
+  }
+
+  return res;
 }
 
 // Dev Mock Data (Isolated strictly behind VITE_ENABLE_MOCKS=true flag)
@@ -170,80 +198,6 @@ let MOCK_RESULTS: ComplianceResult[] = [
         confidence: 0.99
       }
     ]
-  },
-  {
-    id: 'RES-003',
-    requirementId: 'REQ-003',
-    requirementCode: 'REQ-003',
-    requirementText: 'Pump operational efficiency shall not be less than 85%.',
-    category: 'Technical',
-    bidId: 'BID-A-01',
-    tenderId: 'TND-001',
-    tenderNumber: 'GEM/2026/B/90124',
-    bidderName: 'Apex Pumps & Motors Pvt Ltd',
-    isMandatory: true,
-    reqType: 'NUMERIC_THRESHOLD',
-    status: 'COMPLIANT',
-    verificationMethod: 'DETERMINISTIC',
-    reasoning: 'Extracted pump operational efficiency 88.4% >= required 85.0% threshold specification.',
-    confidence: 0.98,
-    expectedValue: '>= 85.00 %',
-    actualValue: '88.4 %',
-    sourceDocument: 'Technical_Pump_Catalog.pdf',
-    sourcePage: 12,
-    riskLevel: 'LOW',
-    contradictionFlag: false,
-    evidenceIds: 'EVD-003',
-    reviewStatus: 'APPROVED',
-    createdAt: '2026-09-10T10:15:00Z',
-    evidenceList: [
-      {
-        id: 'EVD-003',
-        documentName: 'Technical_Pump_Catalog.pdf',
-        pageNumber: 12,
-        rawSnippet: 'Pump Performance Test Matrix Page 12: Measured Operating Efficiency = 88.4% at rated 150 kW power load.',
-        extractedValue: 88.4,
-        extractedUnit: '%',
-        confidence: 0.98
-      }
-    ]
-  },
-  {
-    id: 'RES-004',
-    requirementId: 'REQ-004',
-    requirementCode: 'REQ-004',
-    requirementText: 'Minimum 5 years of experience supplying government entities.',
-    category: 'Experience',
-    bidId: 'BID-A-01',
-    tenderId: 'TND-001',
-    tenderNumber: 'GEM/2026/B/90124',
-    bidderName: 'Apex Pumps & Motors Pvt Ltd',
-    isMandatory: true,
-    reqType: 'NUMERIC_THRESHOLD',
-    status: 'UNVERIFIED',
-    verificationMethod: 'AI_LANGUAGE',
-    reasoning: 'Only 3 past government purchase orders were located in submitted documents; 2 missing years to fulfill 5-year experience requirement.',
-    confidence: 0.85,
-    expectedValue: '>= 5.00 Years',
-    actualValue: '3.0 Years (Missing 2 years)',
-    sourceDocument: 'Past_Purchase_Orders.pdf',
-    sourcePage: 5,
-    riskLevel: 'MEDIUM',
-    contradictionFlag: false,
-    evidenceIds: 'EVD-004',
-    reviewStatus: 'PENDING',
-    createdAt: '2026-09-10T10:15:00Z',
-    evidenceList: [
-      {
-        id: 'EVD-004',
-        documentName: 'Past_Purchase_Orders.pdf',
-        pageNumber: 5,
-        rawSnippet: 'Government Supply History: Central Water Commission (2023), Jal Shakti Department (2024), NDMC Municipal Corp (2025). Missing 2 years for 5-year criteria.',
-        extractedValue: 3,
-        extractedUnit: 'Years',
-        confidence: 0.85
-      }
-    ]
   }
 ];
 
@@ -258,49 +212,34 @@ let MOCK_AUDITS: AuditLog[] = [
     resourceId: 'BID-A-01',
     timestamp: '2026-09-10T10:14:30Z',
     details: 'Automated compliance evaluation triggered for Apex Pumps bid.'
-  },
-  {
-    id: 'AUD-100',
-    actorId: 'USR-PROC-01',
-    actorRole: 'PROCUREMENT_OFFICER',
-    organizationId: 'ORG-001',
-    action: 'TENDER_CREATED',
-    resourceType: 'TENDER',
-    resourceId: 'TND-001',
-    timestamp: '2026-09-10T10:00:00Z',
-    details: 'Created tender GEM/2026/B/90124.'
   }
 ];
 
 export const apiService = {
   getTenders: async (): Promise<Tender[]> => {
     if (ENABLE_MOCKS) return MOCK_TENDERS;
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/tenders`, { headers: authHeaders });
+    const res = await fetchWithAuth(`${API_BASE_URL}/tenders`);
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },
 
   getTenderById: async (id: string): Promise<Tender> => {
     if (ENABLE_MOCKS) return MOCK_TENDERS.find(t => t.id === id) || MOCK_TENDERS[0];
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/tenders/${id}`, { headers: authHeaders });
+    const res = await fetchWithAuth(`${API_BASE_URL}/tenders/${id}`);
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },
 
   getComplianceResults: async (bidId: string): Promise<ComplianceResult[]> => {
     if (ENABLE_MOCKS) return MOCK_RESULTS;
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/compliance/bid/${bidId}`, { headers: authHeaders });
+    const res = await fetchWithAuth(`${API_BASE_URL}/compliance/bid/${bidId}`);
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },
 
   getComplianceByTender: async (tenderId: string): Promise<ComplianceResult[]> => {
     if (ENABLE_MOCKS) return MOCK_RESULTS;
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/compliance/tender/${tenderId}`, { headers: authHeaders });
+    const res = await fetchWithAuth(`${API_BASE_URL}/compliance/tender/${tenderId}`);
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },
@@ -309,11 +248,10 @@ export const apiService = {
     if (ENABLE_MOCKS) {
       return MOCK_RESULTS.filter(r => r.reviewStatus === 'PENDING' || r.status === 'NON_COMPLIANT' || r.status === 'UNVERIFIED');
     }
-    const authHeaders = await getAuthHeaders();
     const url = tenderId && tenderId !== 'ALL'
       ? `${API_BASE_URL}/reviews/queue?tenderId=${encodeURIComponent(tenderId)}`
       : `${API_BASE_URL}/reviews/queue`;
-    const res = await fetch(url, { headers: authHeaders });
+    const res = await fetchWithAuth(url);
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },
@@ -343,10 +281,9 @@ export const apiService = {
       throw new Error('Compliance result not found');
     }
 
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/reviews/override`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/reviews/override`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(review)
     });
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
@@ -355,8 +292,7 @@ export const apiService = {
 
   getAuditLogs: async (): Promise<AuditLog[]> => {
     if (ENABLE_MOCKS) return MOCK_AUDITS;
-    const authHeaders = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/audit`, { headers: authHeaders });
+    const res = await fetchWithAuth(`${API_BASE_URL}/audit`);
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   }
