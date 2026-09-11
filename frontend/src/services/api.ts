@@ -7,7 +7,7 @@ const ENABLE_MOCKS = import.meta.env.VITE_ENABLE_MOCKS === 'true';
 
 // Auto-acquire JWT token for authenticated Spring Boot REST API calls
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  let token = localStorage.getItem('sih_jwt_token');
+  let token = localStorage.getItem('gem_auth_token') || localStorage.getItem('sih_jwt_token');
   if (!token) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -20,6 +20,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
         token = data.token;
         if (token) {
           localStorage.setItem('sih_jwt_token', token);
+          localStorage.setItem('gem_auth_token', token);
         }
       }
     } catch (e) {
@@ -105,13 +106,35 @@ let MOCK_RESULTS: ComplianceResult[] = [
     requirementText: 'Bidder must have minimum ₹100 crore annual turnover for each of the previous 3 financial years.',
     category: 'Financial',
     bidId: 'BID-A-01',
+    tenderId: 'TND-001',
+    tenderNumber: 'GEM/2026/B/90124',
+    bidderName: 'Apex Pumps & Motors Pvt Ltd',
+    isMandatory: true,
+    reqType: 'NUMERIC_THRESHOLD',
     status: 'NON_COMPLIANT',
-    verificationMethod: 'deterministic',
-    reasoning: 'FY2025 turnover is ₹94.0 Cr which is below the required ₹100.0 Cr threshold.',
+    verificationMethod: 'DETERMINISTIC',
+    reasoning: 'FY2025 turnover is ₹94.0 Cr which is below the required ₹100.0 Cr threshold (FY2023: ₹112.0 Cr, FY2024: ₹127.5 Cr, FY2025: ₹94.0 Cr). Deterministic comparison: ₹94.0 Cr < ₹100.0 Cr.',
     confidence: 0.99,
-    evidenceIds: 'EVD-091',
+    expectedValue: '>= 100.00 Cr',
+    actualValue: '₹94.0 Cr (FY2025: ₹94.0 Cr < Required ₹100.0 Cr)',
+    sourceDocument: 'Financial_Statements.pdf',
+    sourcePage: 37,
+    riskLevel: 'HIGH',
+    contradictionFlag: false,
+    evidenceIds: 'EVD-001',
     reviewStatus: 'PENDING',
-    createdAt: '2026-09-10T10:15:00Z'
+    createdAt: '2026-09-10T10:15:00Z',
+    evidenceList: [
+      {
+        id: 'EVD-001',
+        documentName: 'Financial_Statements.pdf',
+        pageNumber: 37,
+        rawSnippet: 'Financial Audit Report Section 4.2: FY2023 Annual Turnover = ₹112.0 Cr, FY2024 Annual Turnover = ₹127.5 Cr, FY2025 Annual Turnover = ₹94.0 Cr.',
+        extractedValue: 94,
+        extractedUnit: 'Cr',
+        confidence: 0.99
+      }
+    ]
   },
   {
     id: 'RES-002',
@@ -120,13 +143,33 @@ let MOCK_RESULTS: ComplianceResult[] = [
     requirementText: 'Valid GST Registration Certificate & PAN Card must be submitted.',
     category: 'Eligibility',
     bidId: 'BID-A-01',
+    tenderId: 'TND-001',
+    tenderNumber: 'GEM/2026/B/90124',
+    bidderName: 'Apex Pumps & Motors Pvt Ltd',
+    isMandatory: true,
+    reqType: 'DOCUMENT_PRESENCE',
     status: 'COMPLIANT',
-    verificationMethod: 'deterministic',
-    reasoning: 'GST Registration Certificate (07AAAAA0000A1Z5) and PAN (AAACA1234F) are verified and active.',
+    verificationMethod: 'DETERMINISTIC',
+    reasoning: 'GST Registration Certificate (07AAAAA0000A1Z5) and PAN Card (AAACA1234F) are verified and active on GSTN tax portal.',
     confidence: 0.99,
-    evidenceIds: 'EVD-092, EVD-093',
+    expectedValue: 'Document Submission Required',
+    actualValue: 'GSTIN: 07AAAAA0000A1Z5, PAN: AAACA1234F verified',
+    sourceDocument: 'GST_PAN_Certificates.pdf',
+    sourcePage: 2,
+    riskLevel: 'LOW',
+    contradictionFlag: false,
+    evidenceIds: 'EVD-002',
     reviewStatus: 'APPROVED',
-    createdAt: '2026-09-10T10:15:00Z'
+    createdAt: '2026-09-10T10:15:00Z',
+    evidenceList: [
+      {
+        id: 'EVD-002',
+        documentName: 'GST_PAN_Certificates.pdf',
+        pageNumber: 2,
+        rawSnippet: 'GSTIN: 07AAAAA0000A1Z5 (Active - Registered in New Delhi), PAN: AAACA1234F (Verified Entity: Apex Pumps & Motors Pvt Ltd).',
+        confidence: 0.99
+      }
+    ]
   },
   {
     id: 'RES-003',
@@ -135,13 +178,35 @@ let MOCK_RESULTS: ComplianceResult[] = [
     requirementText: 'Pump operational efficiency shall not be less than 85%.',
     category: 'Technical',
     bidId: 'BID-A-01',
+    tenderId: 'TND-001',
+    tenderNumber: 'GEM/2026/B/90124',
+    bidderName: 'Apex Pumps & Motors Pvt Ltd',
+    isMandatory: true,
+    reqType: 'NUMERIC_THRESHOLD',
     status: 'COMPLIANT',
-    verificationMethod: 'deterministic',
-    reasoning: 'Extracted value 88.4% >= required 85.0% threshold.',
+    verificationMethod: 'DETERMINISTIC',
+    reasoning: 'Extracted pump operational efficiency 88.4% >= required 85.0% threshold specification.',
     confidence: 0.98,
-    evidenceIds: 'EVD-094',
+    expectedValue: '>= 85.00 %',
+    actualValue: '88.4 %',
+    sourceDocument: 'Technical_Pump_Catalog.pdf',
+    sourcePage: 12,
+    riskLevel: 'LOW',
+    contradictionFlag: false,
+    evidenceIds: 'EVD-003',
     reviewStatus: 'APPROVED',
-    createdAt: '2026-09-10T10:15:00Z'
+    createdAt: '2026-09-10T10:15:00Z',
+    evidenceList: [
+      {
+        id: 'EVD-003',
+        documentName: 'Technical_Pump_Catalog.pdf',
+        pageNumber: 12,
+        rawSnippet: 'Pump Performance Test Matrix Page 12: Measured Operating Efficiency = 88.4% at rated 150 kW power load.',
+        extractedValue: 88.4,
+        extractedUnit: '%',
+        confidence: 0.98
+      }
+    ]
   },
   {
     id: 'RES-004',
@@ -150,13 +215,35 @@ let MOCK_RESULTS: ComplianceResult[] = [
     requirementText: 'Minimum 5 years of experience supplying government entities.',
     category: 'Experience',
     bidId: 'BID-A-01',
+    tenderId: 'TND-001',
+    tenderNumber: 'GEM/2026/B/90124',
+    bidderName: 'Apex Pumps & Motors Pvt Ltd',
+    isMandatory: true,
+    reqType: 'NUMERIC_THRESHOLD',
     status: 'UNVERIFIED',
-    verificationMethod: 'ai_language',
-    reasoning: 'Only 3 past government purchase orders were located in submitted documents; 2 missing years.',
+    verificationMethod: 'AI_LANGUAGE',
+    reasoning: 'Only 3 past government purchase orders were located in submitted documents; 2 missing years to fulfill 5-year experience requirement.',
     confidence: 0.85,
-    evidenceIds: 'EVD-095',
+    expectedValue: '>= 5.00 Years',
+    actualValue: '3.0 Years (Missing 2 years)',
+    sourceDocument: 'Past_Purchase_Orders.pdf',
+    sourcePage: 5,
+    riskLevel: 'MEDIUM',
+    contradictionFlag: false,
+    evidenceIds: 'EVD-004',
     reviewStatus: 'PENDING',
-    createdAt: '2026-09-10T10:15:00Z'
+    createdAt: '2026-09-10T10:15:00Z',
+    evidenceList: [
+      {
+        id: 'EVD-004',
+        documentName: 'Past_Purchase_Orders.pdf',
+        pageNumber: 5,
+        rawSnippet: 'Government Supply History: Central Water Commission (2023), Jal Shakti Department (2024), NDMC Municipal Corp (2025). Missing 2 years for 5-year criteria.',
+        extractedValue: 3,
+        extractedUnit: 'Years',
+        confidence: 0.85
+      }
+    ]
   }
 ];
 
@@ -206,6 +293,27 @@ export const apiService = {
     if (ENABLE_MOCKS) return MOCK_RESULTS;
     const authHeaders = await getAuthHeaders();
     const res = await fetch(`${API_BASE_URL}/compliance/bid/${bidId}`, { headers: authHeaders });
+    if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
+    return await res.json();
+  },
+
+  getComplianceByTender: async (tenderId: string): Promise<ComplianceResult[]> => {
+    if (ENABLE_MOCKS) return MOCK_RESULTS;
+    const authHeaders = await getAuthHeaders();
+    const res = await fetch(`${API_BASE_URL}/compliance/tender/${tenderId}`, { headers: authHeaders });
+    if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
+    return await res.json();
+  },
+
+  getReviewQueue: async (tenderId?: string): Promise<ComplianceResult[]> => {
+    if (ENABLE_MOCKS) {
+      return MOCK_RESULTS.filter(r => r.reviewStatus === 'PENDING' || r.status === 'NON_COMPLIANT' || r.status === 'UNVERIFIED');
+    }
+    const authHeaders = await getAuthHeaders();
+    const url = tenderId && tenderId !== 'ALL'
+      ? `${API_BASE_URL}/reviews/queue?tenderId=${encodeURIComponent(tenderId)}`
+      : `${API_BASE_URL}/reviews/queue`;
+    const res = await fetch(url, { headers: authHeaders });
     if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
     return await res.json();
   },

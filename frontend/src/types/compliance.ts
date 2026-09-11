@@ -5,7 +5,7 @@ export type ComplianceStatus =
   | 'UNVERIFIED'
   | 'NOT_APPLICABLE';
 
-export type VerificationMethod = 'deterministic' | 'ai_language' | 'hybrid';
+export type VerificationMethod = 'DETERMINISTIC' | 'AI_LANGUAGE' | 'HYBRID' | 'deterministic' | 'ai_language' | 'hybrid';
 
 export interface Requirement {
   id: string;
@@ -36,20 +36,42 @@ export interface Tender {
   requirements: Requirement[];
 }
 
+export interface EvidenceItem {
+  id: string;
+  documentName?: string;
+  pageNumber: number;
+  rawSnippet: string;
+  extractedValue?: number;
+  extractedUnit?: string;
+  confidence: number;
+}
+
 export interface ComplianceResult {
   id: string;
   requirementId: string;
   requirementCode: string;
   requirementText: string;
   category: string;
+  tenderId?: string;
+  tenderNumber?: string;
   bidId: string;
+  bidderName?: string;
+  isMandatory?: boolean;
+  reqType?: string;
   status: ComplianceStatus;
   verificationMethod: VerificationMethod;
   reasoning: string;
   confidence: number;
-  evidenceIds: string;
+  expectedValue?: string;
+  actualValue?: string;
+  sourceDocument?: string;
+  sourcePage?: number;
+  riskLevel?: 'HIGH' | 'MEDIUM' | 'LOW';
+  contradictionFlag?: boolean;
+  evidenceIds?: string;
   reviewStatus: 'PENDING' | 'APPROVED' | 'OVERRIDDEN';
   createdAt: string;
+  evidenceList?: EvidenceItem[];
 }
 
 export interface AuditLog {
